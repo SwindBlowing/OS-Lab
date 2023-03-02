@@ -10,6 +10,8 @@ uint32_t load_elf(PD *pgdir, const char *name) {
   Elf32_Ehdr elf;
   Elf32_Phdr ph;
   inode_t *inode = iopen(name, TYPE_NONE);
+  PD *usedpg = vm_curr();
+  set_cr3(pgdir);
   if (!inode) return -1;
   iread(inode, 0, &elf, sizeof(elf));
   if (*(uint32_t*)(&elf) != 0x464c457f) { // check ELF magic number
@@ -20,12 +22,18 @@ uint32_t load_elf(PD *pgdir, const char *name) {
     iread(inode, elf.e_phoff + i * sizeof(ph), &ph, sizeof(ph));
     if (ph.p_type == PT_LOAD) {
       // Lab1-2: Load segment to physical memory
+	  //iread(inode, ph.p_offset, (void *)ph.p_vaddr, ph.p_filesz);
+	  //memset((void *)ph.p_vaddr + ph.p_filesz, 0, ph.p_memsz - ph.p_filesz);
       // Lab1-4: Load segment to virtual memory
-      TODO();
+      vm_map(pgdir, ph.p_vaddr, ph.p_memsz, 7);
+	  iread(inode, ph.p_offset, (void *)ph.p_vaddr, ph.p_filesz);
+	  memset((void *)ph.p_vaddr + ph.p_filesz, 0, ph.p_memsz - ph.p_filesz);
     }
   }
   // TODO: Lab1-4 alloc stack memory in pgdir
   iclose(inode);
+  vm_map(pgdir, USR_MEM - PGSIZE, PGSIZE, 7);
+  set_cr3(usedpg);
   return elf.e_entry;
 }
 

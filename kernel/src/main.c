@@ -14,8 +14,8 @@ int main() {
   init_gdt();
   init_serial();
   init_fs();
-  //init_page(); // uncomment me at Lab1-4
-  //init_cte(); // uncomment me at Lab1-5
+  init_page(); // uncomment me at Lab1-4
+  init_cte(); // uncomment me at Lab1-5
   //init_timer(); // uncomment me at Lab1-7
   //init_proc(); // uncomment me at Lab2-1
   //init_dev(); // uncomment me at Lab3-1
@@ -31,7 +31,9 @@ void init_user_and_go() {
   // Lab1-8: argv
   // Lab2-1: proc
   // Lab3-2: add cwd
-  uint32_t eip = load_elf(NULL, "loaduser");
+  PD *pgdir = vm_alloc();
+  uint32_t eip = load_elf(pgdir, "pgfault");
   assert(eip != -1);
-  ((void(*)())eip)();
+  set_cr3(pgdir);
+  stack_switch_call((void*)(USR_MEM - 16), (void*)eip, 0);
 }
