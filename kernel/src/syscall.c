@@ -33,12 +33,20 @@ void do_syscall(Context *ctx) {
 
 int sys_write(int fd, const void *buf, size_t count) {
   // TODO: rewrite me at Lab3-1
-  return serial_write(buf, count);
+  //return serial_write(buf, count);
+  proc_t *cur_proc = proc_curr();
+  file_t *nowFile = proc_getfile(cur_proc, fd);
+  if (nowFile == NULL) return -1;
+  return fwrite(nowFile, buf, count);
 }
 
 int sys_read(int fd, void *buf, size_t count) {
   // TODO: rewrite me at Lab3-1
-  return serial_read(buf, count);
+  //return serial_read(buf, count);
+  proc_t *cur_proc = proc_curr();
+  file_t *nowFile = proc_getfile(cur_proc, fd);
+  if (nowFile == NULL) return -1;
+  return fread(nowFile, buf, count);
 }
 
 int sys_brk(void *addr) {
@@ -179,23 +187,62 @@ int sys_sem_close(int sem_id) {
 }
 
 int sys_open(const char *path, int mode) {
-  TODO(); // Lab3-1
+  //TODO(); // Lab3-1
+  proc_t *cur_proc = proc_curr();
+  int fd = proc_allocfile(cur_proc);
+  if (fd == -1) return -1;
+  file_t *nowFile = fopen(path, mode);
+  if (nowFile == NULL) return -1;
+  cur_proc->files[fd] = nowFile;
+  return fd;
 }
 
 int sys_close(int fd) {
-  TODO(); // Lab3-1
+  //TODO(); // Lab3-1
+  proc_t *cur_proc = proc_curr();
+  file_t *nowFile = proc_getfile(cur_proc, fd);
+  if (nowFile == NULL) return -1;
+  fclose(nowFile);
+  cur_proc->files[fd] = NULL;
+  return 0;
 }
 
 int sys_dup(int fd) {
-  TODO(); // Lab3-1
+  //TODO(); // Lab3-1
+  proc_t *cur_proc = proc_curr();
+  int newfd = proc_allocfile(cur_proc);
+  if (newfd == -1) return -1;
+  file_t *nowFile = proc_getfile(cur_proc, fd);
+  if (nowFile == NULL) return -1;
+  cur_proc->files[newfd] = nowFile;
+  fdup(nowFile);
+  return newfd;
 }
 
 uint32_t sys_lseek(int fd, uint32_t off, int whence) {
-  TODO(); // Lab3-1
+  //TODO(); // Lab3-1
+  proc_t *cur_proc = proc_curr();
+  file_t *nowFile = proc_getfile(cur_proc, fd);
+  if (nowFile == NULL) return -1;
+  return fseek(nowFile, off, whence);
 }
 
 int sys_fstat(int fd, struct stat *st) {
-  TODO(); // Lab3-1
+  //TODO(); // Lab3-1
+  proc_t *cur_proc = proc_curr();
+  file_t *nowFile = proc_getfile(cur_proc, fd);
+  if (nowFile == NULL) return -1;
+  if (nowFile->type == TYPE_FILE) {
+	st->node = ino(nowFile->inode);
+	st->size = isize(nowFile->inode);
+	st->type = itype(nowFile->inode);
+  }
+  else {
+	st->type = TYPE_DEV;
+	st->node = 0;
+	st->size = 0;
+  }
+  return 0;
 }
 
 int sys_chdir(const char *path) {
