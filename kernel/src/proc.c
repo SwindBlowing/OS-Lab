@@ -13,6 +13,7 @@ void init_proc() {
   // Lab2-1, set status and pgdir
   pcb[0].status = RUNNING;
   pcb[0].pgdir = vm_curr();
+  sem_init(&pcb[0].zombie_sem, 0);
   // Lab2-4, init zombie_sem
   // Lab3-2, set cwd
 }
@@ -33,6 +34,9 @@ proc_t *proc_alloc() {
 		pcb[i].parent = NULL;
 		pcb[i].child_num = 0;
 		pcb[i].exit_code = 0;
+		sem_init(&pcb[i].zombie_sem, 0);
+		for (int j = 0; j < MAX_USEM; j++)
+			pcb[i].usems[j] = NULL;
 		return &pcb[i];
 	}
   return NULL;
@@ -75,16 +79,17 @@ void proc_copycurr(proc_t *proc) {
   // Lab2-2: copy curr proc
   proc_t *cur_proc = proc_curr();
   proc->brk = cur_proc->brk;
-  //printf("%x\n", cur_proc->ctx->irq);
   vm_copycurr(proc->pgdir);
   memcpy(proc->ctx, &(cur_proc->kstack->ctx), sizeof(Context));
-  //printf("%x\n", proc->ctx->irq);
-  //printf("here\n");
-  //printf("%p\n", proc->ctx);
   proc->ctx->eax = 0;
   proc->parent = cur_proc;
   cur_proc->child_num++;
   // Lab2-5: dup opened usems
+  for (int i = 0; i < MAX_USEM; i++) {
+	proc->usems[i] = cur_proc->usems[i];
+	if (proc->usems[i] != NULL)
+		usem_dup(proc->usems[i]);
+  }
   // Lab3-1: dup opened files
   // Lab3-2: dup cwd
   //TODO();
@@ -96,6 +101,8 @@ void proc_makezombie(proc_t *proc, int exitcode) {
   proc->exit_code = exitcode;
   for (uint32_t i = 0; i < PROC_NUM; i++)
 	if (pcb[i].parent == proc) pcb[i].parent = NULL;
+  if (proc->parent != NULL)
+  	sem_v(&(proc->parent->zombie_sem));
   // Lab2-5: close opened usem
   // Lab3-1: close opened files
   // Lab3-2: close cwd
@@ -118,12 +125,18 @@ void proc_block() {
 
 int proc_allocusem(proc_t *proc) {
   // Lab2-5: find a free slot in proc->usems, return its index, or -1 if none
-  TODO();
+  //TODO();
+  for (int i = 0; i < MAX_USEM; i++)
+	if (proc->usems[i] == NULL) return i;
+  return -1;
 }
 
 usem_t *proc_getusem(proc_t *proc, int sem_id) {
   // Lab2-5: return proc->usems[sem_id], or NULL if sem_id out of bound
-  TODO();
+  //TODO();
+  if (sem_id < 0 || sem_id >= MAX_USEM) return NULL;
+  //assert(proc->usems[sem_id] != NULL);
+  return proc->usems[sem_id];
 }
 
 int proc_allocfile(proc_t *proc) {
