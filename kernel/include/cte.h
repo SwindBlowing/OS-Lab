@@ -11,7 +11,8 @@ typedef struct Context {
            eflags, irq, errcode;*/
 	uint32_t ds, ebp, edi, esi, edx,
 			ecx, ebx, eax, irq, errcode,
-			eip, cs, eflags;
+			eip, cs, eflags,
+			esp, ss;
 } Context;
 
 void init_cte();

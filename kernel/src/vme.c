@@ -40,9 +40,9 @@ void init_page() {
   // Lab1-4: init kpd and kpt, identity mapping of [0 (or 4096), PHY_MEM)
   //TODO();
   for (int i = 0; i < PHY_MEM / PT_SIZE; i++) {
-	kpd.pde[i].val = MAKE_PDE(&kpt[i], 1);
+	kpd.pde[i].val = MAKE_PDE(&kpt[i], 7);
 	for (int j = 0; j < NR_PTE; j++)
-		kpt[i].pte[j].val = MAKE_PTE((i << DIR_SHIFT) | (j << TBL_SHIFT), 1);
+		kpt[i].pte[j].val = MAKE_PTE((i << DIR_SHIFT) | (j << TBL_SHIFT), 7);
   }
 	
   kpt[0].pte[0].val = 0;
@@ -87,7 +87,7 @@ PD *vm_alloc() {
   //TODO();
   PD *new_page = kalloc();
   for (int i = 0; i < 32; i++)
-  	new_page->pde[i].val = MAKE_PDE(&kpt[i], 1);
+  	new_page->pde[i].val = MAKE_PDE(&kpt[i], 7);
   for (int i = 32; i < NR_PDE; i++)
 	new_page->pde[i].val = 0;
   return new_page;
@@ -98,7 +98,8 @@ void vm_teardown(PD *pgdir) {
   // you can just do nothing :)
   //TODO();
   for (int i = 32; i < NR_PDE; i++)
-	kfree((void *)(pgdir->pde[i].page_frame * PGSIZE));
+	if (pgdir->pde[i].present)
+		kfree((void *)(pgdir->pde[i].page_frame * PGSIZE));
   kfree(pgdir);
 }
 
@@ -115,7 +116,8 @@ PTE *vm_walkpte(PD *pgdir, size_t va, int prot) {
   //TODO();
   int pd_index = ADDR2DIR(va);
   if (pgdir->pde[pd_index].present == 0) {
-	pgdir->pde[pd_index].val = MAKE_PDE(kalloc(), 7);
+	if (prot) pgdir->pde[pd_index].val = MAKE_PDE(kalloc(), 7);
+	else return NULL;
   }
   PDE *pde = &(pgdir->pde[pd_index]);
   PT *pt = PDE2PT(*pde);
@@ -133,12 +135,16 @@ void *vm_walk(PD *pgdir, size_t va, int prot) {
   // Lab1-4: translate va to pa
   // if prot&1 and prot voilation ((pte->val & prot & 7) != prot), call vm_pgfault
   // if va is not mapped and !(prot&1), return NULL
-  TODO();
+  //TODO();
+  PTE *nowPTE = vm_walkpte(pgdir, va, prot);
+  if (nowPTE == NULL) return NULL;
+  return (void *)(nowPTE->page_frame * PGSIZE + ADDR2OFF(va));
 }
 
 void vm_map(PD *pgdir, size_t va, size_t len, int prot) {
   // Lab1-4: map [PAGE_DOWN(va), PAGE_UP(va+len)) at pgdir, with prot
   // if have already mapped pages, just let pte->prot |= prot
+  //printf("%p %x %x\n", pgdir, va, va + len);
   assert(prot & PTE_P);
   assert((prot & ~7) == 0);
   size_t start = PAGE_DOWN(va);
@@ -163,7 +169,8 @@ void vm_unmap(PD *pgdir, size_t va, size_t len) {
   assert(start >= PHY_MEM);
   assert(end >= start);
   for (size_t i = start; i < end; i += PGSIZE) {
-	PTE * nowPTE = vm_walkpte(pgdir, i, 7);
+	PTE * nowPTE = vm_walkpte(pgdir, i, 0);
+	if (nowPTE == NULL) continue;
 	kfree((void *)(nowPTE->page_frame * PGSIZE));
 	nowPTE->val = 0;
   }

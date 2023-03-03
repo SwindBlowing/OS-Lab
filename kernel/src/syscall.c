@@ -14,19 +14,21 @@ extern void *syscall_handle[NR_SYS];
 
 void do_syscall(Context *ctx) {
   // TODO: Lab1-5 call specific syscall handle and set ctx register
-  int sysnum = 0;
-  uint32_t arg1 = 0;
-  uint32_t arg2 = 0;
-  uint32_t arg3 = 0;
-  uint32_t arg4 = 0;
-  uint32_t arg5 = 0;
+  int sysnum = ctx->eax;
+  uint32_t arg1 = ctx->ebx;
+  uint32_t arg2 = ctx->ecx;
+  uint32_t arg3 = ctx->edx;
+  uint32_t arg4 = ctx->esi;
+  uint32_t arg5 = ctx->edi;
   int res;
   if (sysnum < 0 || sysnum >= NR_SYS) {
     res = -1;
   } else {
     res = ((syshandle_t)(syscall_handle[sysnum]))(arg1, arg2, arg3, arg4, arg5);
+	//printf("%d\n", res);
   }
   ctx->eax = res;
+  //printf("%x\n", ctx->eip);
 }
 
 int sys_write(int fd, const void *buf, size_t count) {
@@ -46,19 +48,46 @@ int sys_brk(void *addr) {
   if (brk == 0) {
     brk = new_brk;
   } else if (new_brk > brk) {
-    TODO();
+    //TODO();
+	vm_map(vm_curr(), brk, new_brk - brk, 7);
+	brk = new_brk;
   } else if (new_brk < brk) {
     // can just do nothing
+	vm_unmap(vm_curr(), new_brk, brk - new_brk);
+	brk = new_brk;
   }
   return 0;
 }
 
 void sys_sleep(int ticks) {
-  TODO(); // Lab1-7
+  //TODO(); // Lab1-7
+  uint32_t beginticks = get_tick();
+  while (1) {
+	uint32_t nowticks = get_tick();
+	if (nowticks - beginticks >= ticks) break;
+	else {
+		sti(); hlt(); cli();
+	}
+  }
 }
 
 int sys_exec(const char *path, char *const argv[]) {
-  TODO(); // Lab1-8, Lab2-1
+  //TODO(); // Lab1-8, Lab2-1
+  //printf("here!\n");
+  PD *newpg = vm_alloc();
+  Context ctx;
+  //printf("here\n");
+  if (load_user(newpg, &ctx, path, argv) != 0) {
+	//printf("here\n");
+	//printf("%p\n", vm_curr());
+	vm_teardown(newpg);
+	//printf("here\n");
+	return -1;
+  }
+  PD *oldpg = vm_curr();
+  set_cr3(newpg);
+  vm_teardown(oldpg);
+  irq_iret(&ctx);
 }
 
 int sys_getpid() {

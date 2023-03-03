@@ -9,6 +9,7 @@ int syscall(int num,
     : "=a"(ret)
     : "a"(num), "b"(arg1), "c"(arg2), "d"(arg3), "S"(arg4), "D"(arg5)
   );
+  //printf("%d\n", ret);
   return ret;
 }
 

@@ -19,6 +19,7 @@ int main() {
     }
     if (argc > 0) {
       argv[argc] = NULL;
+	  //printf("start\n");
       if (exec(argv[0], argv) == -1) {
         printf("sh: exec failed.\n");
       }
