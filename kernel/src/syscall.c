@@ -43,18 +43,19 @@ int sys_read(int fd, void *buf, size_t count) {
 
 int sys_brk(void *addr) {
   // TODO: Lab1-5
-  static size_t brk = 0; // use brk of proc instead of this in Lab2-1
+  //static size_t brk = 0; // use brk of proc instead of this in Lab2-1
+  proc_t *cur_proc = proc_curr();
   size_t new_brk = PAGE_UP(addr);
-  if (brk == 0) {
-    brk = new_brk;
-  } else if (new_brk > brk) {
+  if (cur_proc->brk == 0) {
+    cur_proc->brk = new_brk;
+  } else if (new_brk > cur_proc->brk) {
     //TODO();
-	vm_map(vm_curr(), brk, new_brk - brk, 7);
-	brk = new_brk;
-  } else if (new_brk < brk) {
+	vm_map(vm_curr(), cur_proc->brk, new_brk - cur_proc->brk, 7);
+	cur_proc->brk = new_brk;
+  } else if (new_brk < cur_proc->brk) {
     // can just do nothing
-	vm_unmap(vm_curr(), new_brk, brk - new_brk);
-	brk = new_brk;
+	vm_unmap(vm_curr(), new_brk, cur_proc->brk - new_brk);
+	cur_proc->brk = new_brk;
   }
   return 0;
 }
@@ -66,7 +67,8 @@ void sys_sleep(int ticks) {
 	uint32_t nowticks = get_tick();
 	if (nowticks - beginticks >= ticks) break;
 	else {
-		sti(); hlt(); cli();
+		//sti(); hlt(); cli();
+		proc_yield();
 	}
   }
 }
@@ -85,13 +87,17 @@ int sys_exec(const char *path, char *const argv[]) {
 	return -1;
   }
   PD *oldpg = vm_curr();
+  proc_t *cur_proc = proc_curr();
+  cur_proc->pgdir = newpg;
   set_cr3(newpg);
   vm_teardown(oldpg);
   irq_iret(&ctx);
 }
 
 int sys_getpid() {
-  TODO(); // Lab2-1
+  //TODO(); // Lab2-1
+  proc_t *cur_proc = proc_curr();
+  return cur_proc->pid;
 }
 
 void sys_yield() {
@@ -99,15 +105,34 @@ void sys_yield() {
 }
 
 int sys_fork() {
-  TODO(); // Lab2-2
+  //TODO(); // Lab2-2
+  proc_t *new_proc = proc_alloc();
+  //printf("syscall %p\n", new_proc->ctx);
+  if (new_proc == NULL) return -1;
+  proc_copycurr(new_proc);
+  proc_addready(new_proc);
+  return new_proc->pid;
 }
 
 void sys_exit(int status) {
-  TODO(); // Lab2-3
+  //TODO(); // Lab2-3
+  proc_makezombie(proc_curr(), status);
+  INT(0x81);
+  assert(0);
 }
 
 int sys_wait(int *status) {
-  TODO(); // Lab2-3, Lab2-4
+  //TODO(); // Lab2-3, Lab2-4
+  proc_t *cur_proc = proc_curr();
+  if (cur_proc->child_num == 0) return -1;
+  proc_t *zchild;
+  while ((zchild = proc_findzombie(cur_proc)) == NULL) 
+	proc_yield();
+  if (status != NULL) *status = zchild->exit_code;
+  int p = zchild->pid;
+  proc_free(zchild);
+  cur_proc->child_num--;
+  return p;
 }
 
 int sys_sem_open(int value) {

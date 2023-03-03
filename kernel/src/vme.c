@@ -149,6 +149,7 @@ void vm_map(PD *pgdir, size_t va, size_t len, int prot) {
   assert((prot & ~7) == 0);
   size_t start = PAGE_DOWN(va);
   size_t end = PAGE_UP(va + len);
+  //printf("%x %x\n", start, PHY_MEM);
   assert(start >= PHY_MEM);
   assert(end >= start);
   for (size_t i = start; i < end; i += PGSIZE) {
@@ -178,7 +179,18 @@ void vm_unmap(PD *pgdir, size_t va, size_t len) {
 
 void vm_copycurr(PD *pgdir) {
   // Lab2-2: copy memory mapped in curr pd to pgdir
-  TODO();
+  //TODO();
+  PD *cur_pd = vm_curr();
+  for (uint32_t i = PHY_MEM; i < USR_MEM; i += PGSIZE) {
+	PTE *nowPTE = vm_walkpte(cur_pd, i, 0);
+	if (nowPTE != NULL && nowPTE->present) {
+		//printf("vm_cc %x\n", i);
+		vm_map(pgdir, i, PGSIZE, 7);
+		void *pa = vm_walk(pgdir, i, 0);
+		assert(pa != NULL);
+		memcpy(pa, (void *)(nowPTE->page_frame * PGSIZE), PGSIZE);
+	}
+  }
 }
 
 void vm_pgfault(size_t va, int errcode) {
