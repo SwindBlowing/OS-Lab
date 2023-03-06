@@ -16,6 +16,7 @@ void init_proc() {
   sem_init(&pcb[0].zombie_sem, 0);
   // Lab2-4, init zombie_sem
   // Lab3-2, set cwd
+  pcb[0].cwd = iopen("/", TYPE_NONE);
 }
 
 proc_t *proc_alloc() {
@@ -39,6 +40,7 @@ proc_t *proc_alloc() {
 			pcb[i].usems[j] = NULL;
 		for (int j = 0; j < MAX_UFILE; j++)
 			pcb[i].files[j] = NULL;
+		pcb[i].cwd = NULL;
 		return &pcb[i];
 	}
   return NULL;
@@ -97,6 +99,8 @@ void proc_copycurr(proc_t *proc) {
 	if (proc->files[i] != NULL)
 		fdup(proc->files[i]);
   }
+  proc->cwd = cur_proc->cwd;
+  idup(proc->cwd);
   // Lab3-1: dup opened files
   // Lab3-2: dup cwd
   //TODO();
@@ -113,9 +117,13 @@ void proc_makezombie(proc_t *proc, int exitcode) {
   	sem_v(&(proc->parent->zombie_sem));
   // Lab3-1: close opened files
   for (int i = 0; i < MAX_UFILE; i++)
-	if (proc->files[i] != NULL) fclose(proc->files[i]);
+	if (proc->files[i] != NULL) {
+		//assert(proc->files[i]->inode);
+		fclose(proc->files[i]);
+	}
   // Lab3-2: close cwd
   //TODO();
+  iclose(proc->cwd);
 }
 
 proc_t *proc_findzombie(proc_t *proc) {

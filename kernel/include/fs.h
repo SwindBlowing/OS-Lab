@@ -5,7 +5,7 @@
 
 typedef struct inode inode_t;
 
-#define EASY_FS // TODO: comment me at Lab3-2
+//#define EASY_FS // TODO: comment me at Lab3-2
 
 void init_fs();
 
@@ -26,6 +26,25 @@ int iremove(const char *path);
 
 #define MAX_NAME  (31 - 2 * sizeof(uint32_t))
 
+#define MAX_FILE  (SECTSIZE / sizeof(dinode_t))
+#define MAX_DEV   16
+#define MAX_INODE (MAX_FILE + MAX_DEV)
+
+// On disk inode
+typedef struct dinode {
+  uint32_t start_sect;
+  uint32_t length;
+  char name[MAX_NAME + 1];
+} dinode_t;
+
+// On OS inode, dinode with special info
+struct inode {
+  int valid;
+  int type;
+  int dev; // dev_id if type==TYPE_DEV
+  dinode_t dinode;
+};
+
 #else
 
 #define MAX_NAME  (31 - sizeof(uint32_t))
@@ -34,6 +53,7 @@ typedef struct dirent {
   uint32_t inode;
   char name[MAX_NAME + 1];
 } dirent_t;
+
 
 #endif
 

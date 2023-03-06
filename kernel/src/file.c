@@ -26,17 +26,23 @@ file_t *fopen(const char *path, int mode) {
   //       if file not exist and type==TYPE_NONE, return NULL
   //       if file not exist and type!=TYPE_NONE, create the file as type
   // you can ignore this in Lab3-1
-  int open_type = 114514;
+  int open_type;
+  if (!(mode & O_CREATE)) open_type = TYPE_NONE;
+  else {
+	if (mode & O_DIR) open_type = TYPE_DIR;
+	else open_type = TYPE_FILE;
+  }
   ip = iopen(path, open_type);
   if (!ip) goto bad;
   int type = itype(ip);
+  // TODO: Lab3-2, if type is not DIR, go bad if mode&O_DIR
+  if (type != TYPE_DIR && (mode & O_DIR)) goto bad;
+  // TODO: Lab3-2, if type is DIR, go bad if mode WRITE or TRUNC
+  if (type == TYPE_DIR && ((mode & O_WRONLY) || (mode & O_RDWR) || (mode & O_TRUNC)))
+	goto bad;
+  // TODO: Lab3-2, if mode&O_TRUNC, trunc the file
+  if (mode & O_TRUNC) itrunc(ip);
   if (type == TYPE_FILE || type == TYPE_DIR) {
-    // TODO: Lab3-2, if type is not DIR, go bad if mode&O_DIR
-
-    // TODO: Lab3-2, if type is DIR, go bad if mode WRITE or TRUNC
-
-    // TODO: Lab3-2, if mode&O_TRUNC, trunc the file
-
     fp->type = TYPE_FILE; // file_t don't and needn't distingush between file and dir
     fp->inode = ip;
     fp->offset = 0;
@@ -48,6 +54,7 @@ file_t *fopen(const char *path, int mode) {
   } else assert(0);
   fp->readable = !(mode & O_WRONLY);
   fp->writable = (mode & O_WRONLY) || (mode & O_RDWR);
+  //assert(fp->inode);
   return fp;
 bad:
   if (fp) fclose(fp);
@@ -108,6 +115,7 @@ file_t *fdup(file_t *file) {
 void fclose(file_t *file) {
   // Lab3-1, dec file's ref, if ref==0 and it's a file, call iclose
   //TODO();
+  //assert(file->inode);
   file->ref--;
   if (file->ref == 0 && file->type == TYPE_FILE) iclose(file->inode);
 }

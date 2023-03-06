@@ -9,6 +9,7 @@
 uint32_t load_elf(PD *pgdir, const char *name) {
   Elf32_Ehdr elf;
   Elf32_Phdr ph;
+  //printf("%s\n", name);
   inode_t *inode = iopen(name, TYPE_NONE);
   //printf("%p\n", pgdir);
   if (!inode) return -1;

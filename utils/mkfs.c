@@ -118,10 +118,12 @@ int main(int argc, char *argv[]) {
   assert(img != (void*)-1);
   init_disk();
   for (int i = 2; i < argc; ++i) {
+	//printf("%s\n", argv[i]);
     add_file(argv[i]);
   }
   munmap(img, IMG_SIZE);
   close(tfd);
+  //printf("root ip: %p\n", root);
   return 0;
 }
 
@@ -166,12 +168,21 @@ blk_t *iwalk(dinode_t *file, uint32_t blk_no) {
   // return the pointer to the file's data's blk_no th block, if no, alloc it
   if (blk_no < NDIRECT) {
     // direct address
-    TODO();
+    //TODO();
+	if (file->addrs[blk_no] == 0)
+		file->addrs[blk_no] = balloc();
+	return bget(file->addrs[blk_no]);
   }
   blk_no -= NDIRECT;
   if (blk_no < NINDIRECT) {
     // indirect address
-    TODO();
+    //TODO();
+	if (file->addrs[NDIRECT] == 0)
+		file->addrs[NDIRECT] = balloc();
+	uint32_t *start = (uint32_t *)bget(file->addrs[NDIRECT]);
+	uint32_t *now_blk = start + blk_no;
+	if (*now_blk == 0) *now_blk = balloc();
+	return bget(*now_blk);
   }
   panic("file too big");
 }
@@ -179,7 +190,29 @@ blk_t *iwalk(dinode_t *file, uint32_t blk_no) {
 void iappend(dinode_t *file, const void *buf, uint32_t size) {
   // append buf to file's data, remember to add file->size
   // you can append block by block
-  TODO();
+  // TODO();
+  uint32_t r = file->size;
+  if (r % BLK_SIZE) {
+	uint32_t newr = r - r % BLK_SIZE + BLK_SIZE;
+	void * now_blk = iwalk(file, r / BLK_SIZE);
+	uint32_t offset = r % BLK_SIZE;
+	uint32_t len = size < newr - r ? size : newr - r;
+	memcpy(now_blk + offset, buf, len);
+	buf += len;
+	file->size += len;
+	size -= len;
+	r = newr;
+  }
+  while (size) {
+	void * now_blk = iwalk(file, r / BLK_SIZE);
+	uint32_t len = size < BLK_SIZE ? size : BLK_SIZE;
+	memcpy(now_blk, buf, len);
+	buf += len;
+	file->size += len;
+	size -= len;
+	r += len;
+  }
+  return ;
 }
 
 void add_file(char *path) {
@@ -195,6 +228,16 @@ void add_file(char *path) {
   strcpy(dirent.name, basename(path));
   iappend(root, &dirent, sizeof dirent);
   // write the file's data, first read it to buf then call iappend
-  TODO();
+  //TODO();
+  fseek(fp, 0, SEEK_END);
+  uint32_t totlen = ftell(fp);
+  fseek(fp, 0, SEEK_SET);
+  while (totlen) {
+	uint32_t len = totlen < BLK_SIZE ? totlen : BLK_SIZE;
+	size_t p = fread(&buf, 1, len, fp);
+	p = 1; assert(p);
+	iappend(inode, &buf, len);
+	totlen -= len;
+  }
   fclose(fp);
 }
